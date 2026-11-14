@@ -11,10 +11,18 @@ keywords = ["epub", "ebook", "search", "library", "http"]
 categories = ["web-programming"]
 
 [dependencies]
+anyhow = "1"
 build_html = "2"
 epub = "2"
+http = "1"
+jiff = "0.2"
+log = { version = "0.4", features = ["std"] }
+pico-args = "0.5"
 tiny-database = "1"
 tiny-http-server = "1"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
 
 [profile.release]
 strip = true
