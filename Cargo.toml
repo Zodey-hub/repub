@@ -1,0 +1,29 @@
+[package]
+name = "repub"
+version = "0.1.0"
+edition = "2024"
+authors = ["Bálint Máté <balint.mate.2006@gmail.com>"]
+description = "Search and download EPUB books"
+repository = "https://github.com/Zodey-hub/repub"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["epub", "ebook", "search", "library", "http"]
+categories = ["web-programming"]
+
+[dependencies]
+build_html = "2"
+epub = "2"
+tiny-database = "1"
+tiny-http-server = "1"
+
+[profile.release]
+strip = true
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.release.package."*"]
+strip = true
+opt-level = 3
+codegen-units = 1
