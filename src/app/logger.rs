@@ -37,7 +37,7 @@ impl Log for Logger {
     }
 
     fn log(&self, record: &Record) {
-        let timestamp = jiff::Zoned::now().strftime("%Y-%m-%dT%H:%M:%S%.3f%:z");
+        let timestamp = jiff::ZonedDateTime::now().strftime("%Y-%m-%dT%H:%M:%S%.3f%:z");
 
         let location = match (record.file(), record.line()) {
             (Some(file), Some(line_number)) => format!("{file}:{line_number}"),
@@ -54,7 +54,7 @@ impl Log for Logger {
 
         // the logger has nowhere to report its own write error
         let _ = (&self.file).write_all(line.as_bytes());
-        let _ = io::stderr().write_all(line.as_bytes());
+        let _ = io::stdout().write_all(line.as_bytes());
     }
 
     fn flush(&self) {
