@@ -26,9 +26,16 @@ cargo run --release -- --help
 
 ## Pages
 
-- `GET /`: the home page
-- `GET /health`: the running version as plain text
-- Any other path or method: the not found page (404)
+Every page answers in two forms on the same URL: a browser (its `Accept` lists `text/html`) gets an HTML page, anything else (curl, scripts, monitoring) gets JSON.
+
+- `GET /`: the home page, `{"name":"repub","description":"..."}`
+- `GET /health`: the state of the server, `{"status":"pass","version":"<version>"}`
+- Any other path or method: 404, `{"error":"not_found"}`
+
+```sh
+curl http://127.0.0.1:8080/health                          # JSON
+curl -H 'Accept: text/html' http://127.0.0.1:8080/health   # HTML
+```
 
 ## License
 
