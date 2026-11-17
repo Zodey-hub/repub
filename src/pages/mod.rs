@@ -10,6 +10,8 @@ use http::{HeaderMap, Response, StatusCode};
 use serde::Serialize;
 use tiny_http_server::Body;
 
+use crate::router::STYLE_PATH;
+
 pub use health::health;
 pub use home::home;
 pub use not_found::not_found;
@@ -87,6 +89,7 @@ fn html_page(page: &impl Page) -> Vec<u8> {
         .with_meta(CHARSET_META)
         .with_meta(VIEWPORT_META)
         .with_title(title)
+        .with_stylesheet(STYLE_PATH)
         .with_html(page.content())
         .to_html_string()
         .into_bytes()

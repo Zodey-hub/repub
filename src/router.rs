@@ -5,12 +5,15 @@ use std::future;
 use http::{Method, Request, Response};
 use tiny_http_server::{Body, Handler};
 
+use crate::assets;
 use crate::pages::{self, Format};
 
 /// The path of the home page.
 pub const HOME_PATH: &str = "/";
 /// The path of the health check.
 pub const HEALTH_PATH: &str = "/health";
+/// The path of the stylesheet of every HTML page.
+pub const STYLE_PATH: &str = "/style.css";
 
 /// The handler of the server: answers every request with the page of its method and path.
 #[derive(Debug, Clone, Copy)]
@@ -28,6 +31,7 @@ fn respond(method: &Method, path: &str, format: Format) -> Response<Body> {
     match (method, path) {
         (&Method::GET, HOME_PATH) => pages::render(&pages::home(), format),
         (&Method::GET, HEALTH_PATH) => pages::render(&pages::health(), format),
+        (&Method::GET, STYLE_PATH) => assets::style(),
         _ => pages::render(&pages::not_found(), format),
     }
 }

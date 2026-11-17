@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod app;
+mod assets;
 mod pages;
 mod router;
 

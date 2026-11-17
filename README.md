@@ -32,6 +32,8 @@ Every page answers in two forms on the same URL: a browser (its `Accept` lists `
 - `GET /health`: the state of the server, `{"status":"pass","version":"<version>"}`
 - Any other path or method: 404, `{"error":"not_found"}`
 
+The HTML pages are styled with [Simple.css](https://simplecss.org) v2.3.7 (MIT), a classless stylesheet built into the binary from `assets/simple.min.css` and served at `GET /style.css`.
+
 ```sh
 curl http://127.0.0.1:8080/health                          # JSON
 curl -H 'Accept: text/html' http://127.0.0.1:8080/health   # HTML
