@@ -2,6 +2,7 @@
 
 mod health;
 mod home;
+mod internal_error;
 mod not_found;
 
 use build_html::{Html, HtmlContainer, HtmlElement, HtmlPage, HtmlTag};
@@ -14,6 +15,7 @@ use crate::router::{HEALTH_PATH, HOME_PATH, STYLE_PATH};
 
 pub use health::health;
 pub use home::home;
+pub use internal_error::internal_error;
 pub use not_found::not_found;
 
 const HTML_CONTENT_TYPE: &str = "text/html; charset=utf-8";
@@ -86,10 +88,20 @@ pub fn render(page: &impl Page, format: Format) -> Response<Body> {
     Response::builder()
         .status(page.status())
         .header(CONTENT_TYPE, content_type)
-        // the same URL answers in two forms, a cache must keep them apart
-        .header(VARY, ACCEPT.as_str())
+        .header(VARY, ACCEPT.as_str()) // the same URL answers in two forms, a cache must keep them apart
         .body(Body::from(body))
         .unwrap() // cannot fail, the status and the headers are valid constants
+}
+
+/// The response of a page that could not be built because of a server error: the error is logged, the client gets the internal error page.
+pub fn render_or_error(page: anyhow::Result<impl Page>, format: Format) -> Response<Body> {
+    match page {
+        Ok(page) => render(&page, format),
+        Err(error) => {
+            log::error!("{error:#}");
+            render(&internal_error(), format)
+        }
+    }
 }
 
 /// The whole HTML document of `page`.

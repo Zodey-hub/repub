@@ -15,22 +15,36 @@ cargo build --release
 ## Run
 
 ```sh
-cargo run --release                                                   # 127.0.0.1:8080, log: repub_<version>.log
+cargo run --release                                                   # 127.0.0.1:8080, books: ./library, log: repub_<version>.log
+cargo run --release -- --library ~/books --database data/repub.redb    # its own book directory and database file
 cargo run --release -- --listen 0.0.0.0:8080 --log-file logs/repub.log  # on every interface, with its own log file
 cargo run --release -- --help
 ```
 
 - `--listen <ADDR>`: the address the server listens on; `127.0.0.1:8080` by default, reachable only from this machine
+- `--library <DIR>`: the directory of the EPUB files; `library` in the working directory by default
+- `--database <FILE>`: the database file (missing directories are created); `repub.redb` in the working directory by default
 - `--log-file <FILE>`: the log file, appended on every run (missing directories are created); `repub_<version>.log` in the working directory by default; the log also goes to stderr
-- An address in use, a log file that cannot be written or an invalid flag stops it with exit code 1
+- An address in use, a missing library directory, a database or log file that cannot be written or an invalid flag stops it with exit code 1
+
+## Library
+
+On every start the database is rebuilt from the EPUB files directly in the library directory (subdirectories are not read), before the server starts listening:
+
+- The books get the ids `1..` in the order of their file names, ignoring case; a new file can shift the ids of the books after it
+- Each book stores its title (the file name if it has none), authors and language, and its cover image as it is in the EPUB
+- A file that is not a readable EPUB is skipped with a warning; a cover that is not a JPEG, PNG, GIF or WebP (an SVG could run a script) leaves the book without a cover
+- The log shows the number of files found, a `[x/y]` line for each file and a summary at the end
 
 ## Pages
 
 Every page answers in two forms on the same URL: a browser (its `Accept` lists `text/html`) gets an HTML page, anything else (curl, scripts, monitoring) gets JSON.
 
-- `GET /`: the home page, `{"name":"repub","description":"..."}`
+- `GET /`: the home page with every book, `{"name":"repub","description":"...","books":[{"id":1,"file_name":"...","title":"...","authors":["..."],"language":"en","has_cover":true}]}`
+- `GET /cover?id=<id>`: the cover image of a book; 404 if the book has no cover
 - `GET /health`: the state of the server, `{"status":"pass","version":"<version>"}`
 - Any other path or method: 404, `{"error":"not_found"}`
+- A database error: 500, `{"error":"internal_error"}`, the cause is in the log
 
 The HTML pages are styled with [Simple.css](https://simplecss.org) v2.3.7 (MIT), a classless stylesheet built into the binary from `assets/simple.min.css` and served at `GET /style.css`.
 
