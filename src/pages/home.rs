@@ -24,8 +24,7 @@ impl Page for Home {
     }
 
     fn content(&self) -> HtmlElement {
-        HtmlElement::new(HtmlTag::Main)
-            .with_header(1, self.name)
-            .with_paragraph(self.description)
+        // the name of the site is already in the header of the page
+        HtmlElement::new(HtmlTag::Main).with_paragraph(self.description)
     }
 }

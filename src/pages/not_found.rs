@@ -23,7 +23,7 @@ impl Page for NotFound {
 
     fn content(&self) -> HtmlElement {
         HtmlElement::new(HtmlTag::Main)
-            .with_header(1, "Page not found")
+            .with_header(2, "Page not found")
             .with_link(HOME_PATH, "Back to the home page")
     }
 

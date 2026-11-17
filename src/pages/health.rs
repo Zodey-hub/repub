@@ -1,13 +1,13 @@
 use build_html::{HtmlContainer, HtmlElement, HtmlTag};
 use serde::Serialize;
 
-use super::Page;
+use super::{Page, SITE_VERSION};
 
 /// `GET /health`: whether the server is alive and which version runs.
 pub fn health() -> Health {
     Health {
         status: HealthStatus::Pass,
-        version: env!("CARGO_PKG_VERSION"),
+        version: SITE_VERSION,
     }
 }
 
@@ -28,7 +28,7 @@ impl Page for Health {
         let version = format!("Version: {}", self.version);
 
         HtmlElement::new(HtmlTag::Main)
-            .with_header(1, "Health")
+            .with_header(2, "Health")
             .with_paragraph(status)
             .with_paragraph(version)
     }

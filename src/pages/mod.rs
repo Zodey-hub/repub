@@ -4,13 +4,13 @@ mod health;
 mod home;
 mod not_found;
 
-use build_html::{Html, HtmlContainer, HtmlElement, HtmlPage};
+use build_html::{Html, HtmlContainer, HtmlElement, HtmlPage, HtmlTag};
 use http::header::{ACCEPT, CONTENT_TYPE, VARY};
 use http::{HeaderMap, Response, StatusCode};
 use serde::Serialize;
 use tiny_http_server::Body;
 
-use crate::router::STYLE_PATH;
+use crate::router::{HEALTH_PATH, HOME_PATH, STYLE_PATH};
 
 pub use health::health;
 pub use home::home;
@@ -18,6 +18,17 @@ pub use not_found::not_found;
 
 const HTML_CONTENT_TYPE: &str = "text/html; charset=utf-8";
 const JSON_CONTENT_TYPE: &str = "application/json";
+
+/// The name of the site in the header of every HTML page.
+const SITE_NAME: &str = env!("CARGO_PKG_NAME");
+/// The running version of the site, in the footer of every HTML page and in the health check.
+const SITE_VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The name of the author of the site, without the email address, which a public page must not show.
+const SITE_AUTHOR: &str = author_name(env!("CARGO_PKG_AUTHORS"));
+/// The license of the site, in the footer of every HTML page.
+const SITE_LICENSE: &str = env!("CARGO_PKG_LICENSE");
+/// The source code repository of the site, linked from the footer of every HTML page.
+const SITE_REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 
 /// The `<meta>` of the character encoding, the same on every HTML page.
 const CHARSET_META: [(&str, &str); 1] = [("charset", "utf-8")];
@@ -83,16 +94,65 @@ pub fn render(page: &impl Page, format: Format) -> Response<Body> {
 
 /// The whole HTML document of `page`.
 fn html_page(page: &impl Page) -> Vec<u8> {
-    let title = build_html::escape_html(page.title());
-
     HtmlPage::new()
         .with_meta(CHARSET_META)
         .with_meta(VIEWPORT_META)
-        .with_title(title)
+        .with_title(build_html::escape_html(page.title()))
         .with_stylesheet(STYLE_PATH)
+        .with_html(site_header())
         .with_html(page.content())
+        .with_html(site_footer())
         .to_html_string()
         .into_bytes()
+}
+
+/// The header of every HTML page: the name of the site, a link to the home page.
+fn site_header() -> HtmlElement {
+    let site_name = HtmlElement::new(HtmlTag::Link)
+        .with_attribute("href", HOME_PATH)
+        .with_raw(SITE_NAME);
+
+    HtmlElement::new(HtmlTag::Header).with_header(1, site_name)
+}
+
+/// The footer of every HTML page:
+///
+/// 1. the running version, a link to the source code and to the health check
+/// 2. the author and the license
+fn site_footer() -> HtmlElement {
+    let source_link = HtmlElement::new(HtmlTag::Link)
+        .with_attribute("href", SITE_REPOSITORY)
+        .with_raw("Source");
+
+    let health_link = HtmlElement::new(HtmlTag::Link)
+        .with_attribute("href", HEALTH_PATH)
+        .with_raw("Health");
+
+    let about_line = format!("{SITE_NAME} {SITE_VERSION} | {source_link} | {health_link}");
+    let credits_line = format!("by {SITE_AUTHOR} | {SITE_LICENSE}");
+
+    HtmlElement::new(HtmlTag::Footer)
+        .with_paragraph(about_line)
+        .with_paragraph(credits_line)
+}
+
+/// The name part of a Cargo author, `Name <email>` -> `Name`; more than one author is a compile error.
+const fn author_name(author: &str) -> &str {
+    let bytes = author.as_bytes();
+
+    // Cargo separates the authors with `:`, a second one would be dropped silently otherwise
+    let mut index = 0;
+    while index < bytes.len() {
+        assert!(bytes[index] != b':', "more than one author in Cargo.toml");
+        index += 1;
+    }
+
+    let mut name_end = 0;
+    while name_end < bytes.len() && bytes[name_end] != b'<' {
+        name_end += 1;
+    }
+
+    author.split_at(name_end).0.trim_ascii_end()
 }
 
 #[cfg(test)]
