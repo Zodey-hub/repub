@@ -24,7 +24,7 @@ cargo run --release -- --help
 - `--listen <ADDR>`: the address the server listens on; `127.0.0.1:8080` by default, reachable only from this machine
 - `--library <DIR>`: the directory of the EPUB files; `library` in the working directory by default
 - `--database <FILE>`: the database file (missing directories are created); `repub.redb` in the working directory by default
-- `--log-file <FILE>`: the log file, appended on every run (missing directories are created); `repub_<version>.log` in the working directory by default; the log also goes to stderr
+- `--log-file <FILE>`: the log file, appended on every run (missing directories are created); `repub_<version>.log` in the working directory by default; the log also goes to stdout
 - An address in use, a missing library directory, a database or log file that cannot be written or an invalid flag stops it with exit code 1
 
 ## Library

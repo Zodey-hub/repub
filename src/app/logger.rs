@@ -1,4 +1,4 @@
-//! The logger of the server: the lines of the `log` macros go to stderr and to the log file, as `[<timestamp> <file:line> <level>] <message>`.
+//! The logger of the server: the lines of the `log` macros go to stdout and to the log file, as `[<timestamp> <file:line> <level>] <message>`.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
@@ -7,7 +7,7 @@ use std::path::Path;
 use anyhow::Context;
 use log::{LevelFilter, Log, Metadata, Record};
 
-/// Sets up logging up to `info`: the `log` macros write to the end of `log_file` (the log of earlier runs is kept) and to stderr.
+/// Sets up logging up to `info`: the `log` macros write to the end of `log_file` (the log of earlier runs is kept) and to stdout.
 pub fn init_logging(log_file: &Path) -> anyhow::Result<()> {
     if let Some(log_dir) = log_file.parent() {
         fs::create_dir_all(log_dir)
