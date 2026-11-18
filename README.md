@@ -45,7 +45,7 @@ Every page answers in two forms on the same URL: a browser (its `Accept` lists `
 - `GET /book?id=<id>`: the page of a book with its cover, authors, language, description and a download button; in JSON the book itself; 404 if there is no such book
 - `GET /download?id=<id>`: the EPUB file of a book as an attachment under its own file name (`filename*` keeps the accents); 404 if there is no such book
 - `GET /cover?id=<id>`: the cover image of a book; 404 if the book has no cover
-- `GET /health`: the state of the server, `{"status":"pass","version":"<version>"}`
+- `GET /health`: the state of the server, `{"status":"pass","version":"<version>","books":9}`; 503 with `{"status":"fail","version":"<version>","books":null}` if the database cannot be read, the cause is in the log
 - Any other path or method: 404, `{"error":"not_found"}`
 - A database error: 500, `{"error":"internal_error"}`, the cause is in the log
 

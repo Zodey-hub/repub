@@ -55,7 +55,7 @@ impl Router {
             (&Method::GET, HOME_PATH, _) => pages::home().into_response(format),
             (&Method::GET, SEARCH_PATH, _) => pages::search(database, &query).into_response(format),
             (&Method::GET, BOOK_PATH, Some(id)) => pages::book(database, id).into_response(format),
-            (&Method::GET, HEALTH_PATH, _) => pages::health().into_response(format),
+            (&Method::GET, HEALTH_PATH, _) => pages::health(database).into_response(format),
             (&Method::GET, COVER_PATH, Some(id)) => {
                 files::cover(database, id).into_response(format)
             }
