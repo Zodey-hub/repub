@@ -1,38 +1,28 @@
+use anyhow::Context;
 use http::Response;
 use http::header::{CONTENT_TYPE, X_CONTENT_TYPE_OPTIONS};
 use tiny_database::Database;
 use tiny_http_server::Body;
 
 use crate::library::Cover;
-use crate::pages::{self, Format};
 
-/// `GET /cover?id=<id>`: the cover image of the book `id`; the not found page if there is no such cover.
-pub fn cover(database: &Database, query: Option<&str>, format: Format) -> Response<Body> {
-    let Some(id) = book_id(query) else {
-        return pages::render(&pages::not_found(), format);
-    };
+/// `GET /cover?id=<id>`: the cover image of the book `id`, or `None` if there is no such book or it has no cover.
+///
+/// # Errors
+///
+/// Returns an error if the cover cannot be read from the database.
+pub fn cover(database: &Database, id: u64) -> anyhow::Result<Option<Response<Body>>> {
+    let cover = database
+        .get::<Cover>(id)
+        .with_context(|| format!("cannot read the cover of the book {id}"))?;
 
-    let cover = database.get::<Cover>(id);
-
-    match cover {
-        Ok(Some(cover)) => Response::builder()
+    let response = cover.map(|cover| {
+        Response::builder()
             .header(CONTENT_TYPE, cover.mime_type())
-            .header(X_CONTENT_TYPE_OPTIONS, "nosniff")
+            .header(X_CONTENT_TYPE_OPTIONS, "nosniff") // the type comes from the EPUB file, the browser must not guess another one from the bytes
             .body(Body::from(cover.into_image()))
-            .unwrap(), // cannot fail, the type is one of the allowed cover types
-        Ok(None) => pages::render(&pages::not_found(), format),
-        Err(error) => {
-            log::error!("cannot read the cover of the book {id}: {error:#}");
-            pages::render(&pages::internal_error(), format)
-        }
-    }
-}
+            .unwrap() // cannot fail, the type is one of the allowed cover types
+    });
 
-/// The value of the `id` parameter in `query`, or `None` if it is missing or not a number.
-fn book_id(query: Option<&str>) -> Option<u64> {
-    query?
-        .split('&')
-        .find_map(|parameter| parameter.strip_prefix("id="))?
-        .parse()
-        .ok()
+    Ok(response)
 }

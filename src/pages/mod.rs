@@ -1,5 +1,6 @@
 //! The pages of the site: every page is a data struct, serde gives its JSON form and [`Page`] its HTML form, the `Accept` header of the request chooses between them.
 
+mod book;
 mod health;
 mod home;
 mod internal_error;
@@ -13,6 +14,7 @@ use tiny_http_server::Body;
 
 use crate::router::{HEALTH_PATH, HOME_PATH, STYLE_PATH};
 
+pub use book::book;
 pub use health::health;
 pub use home::home;
 pub use internal_error::internal_error;
@@ -91,17 +93,6 @@ pub fn render(page: &impl Page, format: Format) -> Response<Body> {
         .header(VARY, ACCEPT.as_str()) // the same URL answers in two forms, a cache must keep them apart
         .body(Body::from(body))
         .unwrap() // cannot fail, the status and the headers are valid constants
-}
-
-/// The response of a page that could not be built because of a server error: the error is logged, the client gets the internal error page.
-pub fn render_or_error(page: anyhow::Result<impl Page>, format: Format) -> Response<Body> {
-    match page {
-        Ok(page) => render(&page, format),
-        Err(error) => {
-            log::error!("{error:#}");
-            render(&internal_error(), format)
-        }
-    }
 }
 
 /// The whole HTML document of `page`.

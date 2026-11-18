@@ -10,9 +10,8 @@ pub fn run(arguments: &Arguments) -> anyhow::Result<()> {
     log::info!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     let database = library::index(&arguments.library, &arguments.database)?;
-
-    let server = Server::bind(arguments.listen, Router::new(database))
-        .with_context(|| format!("cannot listen on {}", arguments.listen))?;
+    let handler = Router::new(database, arguments.library.clone());
+    let server = Server::bind(arguments.listen, handler)?;
 
     log::info!("server address: http://{}", arguments.listen);
 

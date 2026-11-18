@@ -32,7 +32,7 @@ cargo run --release -- --help
 On every start the database is rebuilt from the EPUB files directly in the library directory (subdirectories are not read), before the server starts listening:
 
 - The books get the ids `1..` in the order of their file names, ignoring case; a new file can shift the ids of the books after it
-- Each book stores its title (the file name if it has none), authors and language, and its cover image as it is in the EPUB
+- Each book stores its title (the file name if it has none), authors, language, description (as plain text) and its cover image as it is in the EPUB
 - A file that is not a readable EPUB is skipped with a warning; a cover that is not a JPEG, PNG, GIF or WebP (an SVG could run a script) leaves the book without a cover
 - The log shows the number of files found, a `[x/y]` line for each file and a summary at the end
 
@@ -40,7 +40,9 @@ On every start the database is rebuilt from the EPUB files directly in the libra
 
 Every page answers in two forms on the same URL: a browser (its `Accept` lists `text/html`) gets an HTML page, anything else (curl, scripts, monitoring) gets JSON.
 
-- `GET /`: the home page with every book, `{"name":"repub","description":"...","books":[{"id":1,"file_name":"...","title":"...","authors":["..."],"language":"en","has_cover":true}]}`
+- `GET /`: the home page with every book, `{"name":"repub","description":"...","books":[{"id":1,"file_name":"...","title":"...","authors":["..."],"language":"en","description":null,"has_cover":true}]}`
+- `GET /book?id=<id>`: the page of a book with its cover, authors, language, description and a download button; in JSON the book itself; 404 if there is no such book
+- `GET /download?id=<id>`: the EPUB file of a book as an attachment under its own file name (`filename*` keeps the accents); 404 if there is no such book
 - `GET /cover?id=<id>`: the cover image of a book; 404 if the book has no cover
 - `GET /health`: the state of the server, `{"status":"pass","version":"<version>"}`
 - Any other path or method: 404, `{"error":"not_found"}`

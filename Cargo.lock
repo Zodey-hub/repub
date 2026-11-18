@@ -652,6 +652,7 @@ dependencies = [
  "http",
  "jiff",
  "log",
+ "percent-encoding",
  "pico-args",
  "serde",
  "serde_json",
@@ -825,8 +826,6 @@ dependencies = [
 [[package]]
 name = "tiny-http-server"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfb13e31bd3abb0d66cb00ae20156e2d7e0e732743f82849b4cca251511b78d7"
 dependencies = [
  "async-executor",
  "async-io",

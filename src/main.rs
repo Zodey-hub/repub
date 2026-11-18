@@ -4,6 +4,7 @@ mod app;
 mod files;
 mod library;
 mod pages;
+mod reply;
 mod router;
 
 use std::process::ExitCode;

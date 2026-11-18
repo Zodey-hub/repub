@@ -1,6 +1,7 @@
 //! The single routes file: every path of the site is paired with its page here.
 
 use std::future;
+use std::path::PathBuf;
 
 use http::{Method, Request, Response, Uri};
 use tiny_database::Database;
@@ -8,9 +9,14 @@ use tiny_http_server::{Body, Handler};
 
 use crate::files;
 use crate::pages::{self, Format};
+use crate::reply::Reply;
 
 /// The path of the home page.
 pub const HOME_PATH: &str = "/";
+/// The path of the page of a book: `/book?id=<id>`.
+pub const BOOK_PATH: &str = "/book";
+/// The path of the EPUB file of a book: `/download?id=<id>`.
+pub const DOWNLOAD_PATH: &str = "/download";
 /// The path of the health check.
 pub const HEALTH_PATH: &str = "/health";
 /// The path of the stylesheet of every HTML page.
@@ -21,24 +27,36 @@ pub const COVER_PATH: &str = "/cover";
 /// The handler of the server: answers every request with the page of its method and path.
 pub struct Router {
     database: Database,
+    library_dir: PathBuf,
 }
 
 impl Router {
-    /// The router of the pages that read the books from `database`.
-    pub fn new(database: Database) -> Self {
-        Self { database }
+    /// The router of the pages that read the books from `database`, and their files from `library_dir`.
+    pub fn new(database: Database, library_dir: PathBuf) -> Self {
+        Self {
+            database,
+            library_dir,
+        }
     }
 
-    /// The page of a method and a URI in `format`; an unknown path, or a method other than `GET`, gets the not found page.
+    /// The page of a method and a URI in `format`; an unknown path, a method other than `GET`, or a book path without a valid `id` gets the not found page.
     fn respond(&self, method: &Method, uri: &Uri, format: Format) -> Response<Body> {
         let database = &self.database;
+        let library = &self.library_dir;
+        let id = id_parameter(uri.query());
 
-        match (method, uri.path()) {
-            (&Method::GET, HOME_PATH) => pages::render_or_error(pages::home(database), format),
-            (&Method::GET, HEALTH_PATH) => pages::render(&pages::health(), format),
-            (&Method::GET, COVER_PATH) => files::cover(database, uri.query(), format),
-            (&Method::GET, STYLE_PATH) => files::style(),
-            _ => pages::render(&pages::not_found(), format),
+        match (method, uri.path(), id) {
+            (&Method::GET, HOME_PATH, _) => pages::home(database).into_response(format),
+            (&Method::GET, BOOK_PATH, Some(id)) => pages::book(database, id).into_response(format),
+            (&Method::GET, HEALTH_PATH, _) => pages::health().into_response(format),
+            (&Method::GET, COVER_PATH, Some(id)) => {
+                files::cover(database, id).into_response(format)
+            }
+            (&Method::GET, DOWNLOAD_PATH, Some(id)) => {
+                files::download(database, library, id).into_response(format)
+            }
+            (&Method::GET, STYLE_PATH, _) => files::style(),
+            _ => pages::not_found().into_response(format),
         }
     }
 }
@@ -48,4 +66,13 @@ impl Handler for Router {
         let format = Format::from_accept(request.headers());
         future::ready(self.respond(request.method(), request.uri(), format))
     }
+}
+
+/// The value of the `id` parameter in `query`, or `None` if it is missing or not a number.
+fn id_parameter(query: Option<&str>) -> Option<u64> {
+    query?
+        .split('&')
+        .find_map(|parameter| parameter.strip_prefix("id="))?
+        .parse()
+        .ok()
 }

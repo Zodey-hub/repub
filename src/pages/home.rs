@@ -1,10 +1,11 @@
+use anyhow::Context;
 use build_html::{Html, HtmlContainer, HtmlElement, HtmlTag, Table};
 use serde::Serialize;
 use tiny_database::Database;
 
 use super::Page;
 use crate::library::Book;
-use crate::router::COVER_PATH;
+use crate::router::{BOOK_PATH, COVER_PATH};
 
 /// The width of a cover in the list of books, in pixels.
 const COVER_WIDTH: &str = "60";
@@ -15,7 +16,7 @@ const COVER_WIDTH: &str = "60";
 ///
 /// Returns an error if the books cannot be read from the database.
 pub fn home(database: &Database) -> anyhow::Result<Home> {
-    let books = database.all::<Book>()?;
+    let books = database.all::<Book>().context("cannot read the books")?;
 
     Ok(Home {
         name: "repub",
@@ -58,10 +59,14 @@ fn book_table(books: &[Book]) -> Table {
     for book in books {
         // every text comes from an EPUB file, it must not be able to inject markup
         let title = build_html::escape_html(book.title());
+        let title_link = HtmlElement::new(HtmlTag::Link)
+            .with_attribute("href", format!("{BOOK_PATH}?id={}", book.id()))
+            .with_raw(title)
+            .to_html_string();
         let authors = build_html::escape_html(&book.authors().join(", "));
         let language = build_html::escape_html(book.language().unwrap_or_default());
 
-        table.add_body_row([cover_image(book), title, authors, language]);
+        table.add_body_row([cover_image(book), title_link, authors, language]);
     }
 
     table

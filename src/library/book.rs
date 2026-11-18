@@ -17,6 +17,7 @@ pub struct Book {
     title: String,
     authors: Vec<String>,
     language: Option<String>,
+    description: Option<String>,
     has_cover: bool,
 }
 
@@ -46,6 +47,12 @@ impl Book {
 
         let language = epub.mdata("language").map(|item| item.value.clone());
 
+        // the description is often HTML, only its text is kept
+        let description = epub
+            .mdata("description")
+            .map(|item| plain_text(&item.value))
+            .filter(|description| !description.is_empty());
+
         let cover = epub
             .get_cover()
             .and_then(|(img, mime)| Cover::new(id, img, &mime));
@@ -56,6 +63,7 @@ impl Book {
             title,
             authors,
             language,
+            description,
             has_cover: cover.is_some(),
         };
 
@@ -64,6 +72,10 @@ impl Book {
 
     pub fn id(&self) -> u64 {
         self.id
+    }
+
+    pub fn file_name(&self) -> &str {
+        &self.file_name
     }
 
     pub fn title(&self) -> &str {
@@ -76,6 +88,10 @@ impl Book {
 
     pub fn language(&self) -> Option<&str> {
         self.language.as_deref()
+    }
+
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
     }
 
     pub fn has_cover(&self) -> bool {
@@ -94,4 +110,25 @@ impl Record for Book {
     fn index_keys(&self) -> Vec<(NoIndex, Vec<u8>)> {
         Vec::new()
     }
+}
+
+/// The text of `html` without its tags and with its whitespace collapsed; its character references stay as they are.
+fn plain_text(html: &str) -> String {
+    let mut text = String::with_capacity(html.len());
+    let mut in_tag = false;
+
+    for character in html.chars() {
+        match character {
+            // a tag separates words, as `<p>a</p><p>b</p>` shows
+            '<' => {
+                in_tag = true;
+                text.push(' ');
+            }
+            '>' if in_tag => in_tag = false,
+            _ if !in_tag => text.push(character),
+            _ => {}
+        }
+    }
+
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
