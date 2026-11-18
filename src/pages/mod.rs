@@ -5,6 +5,7 @@ mod health;
 mod home;
 mod internal_error;
 mod not_found;
+mod search;
 
 use build_html::{Html, HtmlContainer, HtmlElement, HtmlPage, HtmlTag};
 use http::header::{ACCEPT, CONTENT_TYPE, VARY};
@@ -19,6 +20,7 @@ pub use health::health;
 pub use home::home;
 pub use internal_error::internal_error;
 pub use not_found::not_found;
+pub use search::search;
 
 const HTML_CONTENT_TYPE: &str = "text/html; charset=utf-8";
 const JSON_CONTENT_TYPE: &str = "application/json";

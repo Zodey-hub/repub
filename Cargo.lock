@@ -112,8 +112,7 @@ dependencies = [
 [[package]]
 name = "build_html"
 version = "2.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1829197343f1874c1979c988a5e75c2539c4645792d87494286ce2cb6dc890d"
+source = "git+https://github.com/Zodey-hub/build_html#2f343f87b1231a87b2ee45dab50396efb931f04e"
 
 [[package]]
 name = "bumpalo"
@@ -658,6 +657,7 @@ dependencies = [
  "serde_json",
  "tiny-database",
  "tiny-http-server",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -826,6 +826,7 @@ dependencies = [
 [[package]]
 name = "tiny-http-server"
 version = "1.0.0"
+source = "git+https://github.com/Zodey-hub/tiny-http-server#0c424ac4e349b8b6a0b62cedc17d8b879299a928"
 dependencies = [
  "async-executor",
  "async-io",
@@ -854,6 +855,15 @@ name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75cd3fb03d5288b3ba9a1ee103ac7e9cbb59f0b03d64f8ddfcc04dd42758a85d"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "uuid"

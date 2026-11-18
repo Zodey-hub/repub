@@ -40,7 +40,8 @@ On every start the database is rebuilt from the EPUB files directly in the libra
 
 Every page answers in two forms on the same URL: a browser (its `Accept` lists `text/html`) gets an HTML page, anything else (curl, scripts, monitoring) gets JSON.
 
-- `GET /`: the home page with every book, `{"name":"repub","description":"...","books":[{"id":1,"file_name":"...","title":"...","authors":["..."],"language":"en","description":null,"has_cover":true}]}`
+- `GET /`: the home page with the search form, `{"name":"repub","description":"..."}`
+- `GET /search?q=<query>`: the books whose title or authors contain every word of the query, ignoring case and accents; no book without a query. `{"query":"...","books":[{"id":1,"file_name":"...","title":"...","authors":["..."],"language":"en","description":null,"has_cover":true}]}`
 - `GET /book?id=<id>`: the page of a book with its cover, authors, language, description and a download button; in JSON the book itself; 404 if there is no such book
 - `GET /download?id=<id>`: the EPUB file of a book as an attachment under its own file name (`filename*` keeps the accents); 404 if there is no such book
 - `GET /cover?id=<id>`: the cover image of a book; 404 if the book has no cover
