@@ -158,6 +158,19 @@ const fn author_name(author: &str) -> &str {
     author.split_at(name_end).0.trim_ascii_end()
 }
 
+/// An [`HtmlContainer`] that can take an optional child, so a part a page may not have keeps the builder chain.
+trait WithOptional: HtmlContainer {
+    /// Adds `html` if it is `Some`, otherwise leaves the container as it is.
+    fn with_optional<H: Html>(self, html: Option<H>) -> Self {
+        match html {
+            Some(html) => self.with_html(html),
+            None => self,
+        }
+    }
+}
+
+impl<C: HtmlContainer> WithOptional for C {}
+
 #[cfg(test)]
 mod tests {
     use http::HeaderValue;
