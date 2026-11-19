@@ -32,7 +32,7 @@ pub fn health(database: &Database) -> Health {
 pub struct Health {
     status: HealthStatus,
     version: &'static str,
-    books: Option<usize>,
+    books: Option<u64>,
 }
 
 impl Page for Health {
@@ -82,12 +82,7 @@ impl HealthStatus {
     }
 }
 
-/// The number of books in `database`, counted without deserializing them.
-fn count_books(database: &Database) -> anyhow::Result<usize> {
-    let mut count = 0;
-    database
-        .view_all::<Book>(|_| count += 1)
-        .context("cannot count the books")?;
-
-    Ok(count)
+/// The number of books in `database`, without reading them.
+fn count_books(database: &Database) -> anyhow::Result<u64> {
+    database.count::<Book>().context("cannot count the books")
 }
