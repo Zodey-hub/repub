@@ -50,8 +50,8 @@ pub fn index(library_dir: &Path, database_file: &Path) -> anyhow::Result<Databas
         .with_context(|| format!("cannot create the database {}", database_file.display()))?;
 
     let total = epub_files.len();
-    let mut indexed = 0;
-    let mut covers = 0;
+    let mut books = Vec::with_capacity(total);
+    let mut covers = Vec::new();
 
     // the ids start from 1, in the order of the files
     for (id, path) in (1..).zip(&epub_files) {
@@ -65,27 +65,26 @@ pub fn index(library_dir: &Path, database_file: &Path) -> anyhow::Result<Databas
             }
         };
 
-        database
-            .insert(&book)
-            .with_context(|| format!("cannot store the book {file_name} in the database"))?;
+        log::info!("[{id}/{total}] read \"{}\" from {file_name}", book.title());
 
-        if let Some(cover) = &cover {
-            database.insert(cover).with_context(|| {
-                format!("cannot store the cover of {file_name} in the database")
-            })?;
-            covers += 1;
-        }
-
-        indexed += 1;
-        log::info!(
-            "[{id}/{total}] indexed \"{}\" from {file_name}",
-            book.title()
-        );
+        books.push(book);
+        covers.extend(cover);
     }
 
+    // one transaction for the books and one for the covers, a commit per book would sync the file for each
+    database
+        .insert_many(&books)
+        .context("cannot store the books in the database")?;
+
+    database
+        .insert_many(&covers)
+        .context("cannot store the covers in the database")?;
+
     log::info!(
-        "indexed {indexed} of {total} books ({} skipped, {covers} with a cover) in {:.2} s",
-        total - indexed,
+        "indexed {} of {total} books ({} skipped, {} with a cover) in {:.2} s",
+        books.len(),
+        total - books.len(),
+        covers.len(),
         started.elapsed().as_secs_f64()
     );
 
