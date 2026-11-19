@@ -36,21 +36,22 @@ pub fn download(
     library_dir: &Path,
     id: u64,
 ) -> anyhow::Result<Option<Response<Body>>> {
-    let book = database
-        .get::<Book>(id)
+    // only the file name is copied out of the row, the rest of the book is not built
+    let file_name = database
+        .view::<Book, _>(id, |book| book.file_name().to_owned())
         .with_context(|| format!("cannot read the book {id}"))?;
 
-    let Some(book) = book else {
+    let Some(file_name) = file_name else {
         return Ok(None);
     };
 
-    let path = library_dir.join(book.file_name());
+    let path = library_dir.join(&file_name);
     let epub = fs::read(&path)
         .with_context(|| format!("cannot read the file of the book {id}: {}", path.display()))?;
 
     let response = Response::builder()
         .header(CONTENT_TYPE, EPUB_CONTENT_TYPE)
-        .header(CONTENT_DISPOSITION, content_disposition(book.file_name()))
+        .header(CONTENT_DISPOSITION, content_disposition(&file_name))
         .body(Body::from(epub))
         .unwrap(); // cannot fail, the content disposition is visible ASCII only
 

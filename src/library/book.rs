@@ -142,6 +142,13 @@ impl Book {
     }
 }
 
+impl ArchivedBook {
+    /// The file name of the book in the library directory, read in place from the stored row.
+    pub fn file_name(&self) -> &str {
+        &self.file_name
+    }
+}
+
 impl Record for Book {
     const TABLE: &'static str = "books";
     type Index = BookIndex;
