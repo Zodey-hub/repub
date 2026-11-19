@@ -3,7 +3,7 @@ use build_html::{HtmlContainer, HtmlElement, HtmlTag};
 use serde::Serialize;
 use tiny_database::Database;
 
-use super::{Page, WithOptional};
+use super::{Page, WithEach, WithOptional};
 use crate::library::Book;
 use crate::router::{COVER_PATH, DOWNLOAD_PATH};
 
@@ -53,15 +53,18 @@ impl Page for BookPage {
         );
 
         // a detail the EPUB file does not have gets no line
+        let details = HtmlElement::new(HtmlTag::DescriptionList)
+            .with_optional(detail("Authors", authors.as_slice()))
+            .with_optional(detail("Translators", translators.as_slice()))
+            .with_optional(detail("Publisher", book.publisher().as_slice()))
+            .with_optional(detail("Year", year.as_slice()))
+            .with_optional(detail("Language", book.language().as_slice()))
+            .with_optional(detail("Subjects", book.subjects()));
+
         HtmlElement::new(HtmlTag::Main)
             .with_header(2, title)
             .with_optional(cover_image(book))
-            .with_optional(detail_line("Authors", authors.as_deref()))
-            .with_optional(detail_line("Translators", translators.as_deref()))
-            .with_optional(detail_line("Publisher", book.publisher()))
-            .with_optional(detail_line("Year", year.as_deref()))
-            .with_optional(detail_line("Language", book.language()))
-            .with_optional(subject_list(book))
+            .with_html(details)
             .with_optional(description)
             .with_html(download_button)
     }
@@ -81,36 +84,24 @@ fn cover_image(book: &Book) -> Option<HtmlElement> {
     Some(image)
 }
 
-/// The subjects of `book` one under the other below their label, as a description list; `None` if it has none.
-fn subject_list(book: &Book) -> Option<HtmlElement> {
-    if book.subjects().is_empty() {
+/// A detail of the book: a `<div>` of the `<dt>` of `label` and a `<dd>` for each of `values`; `None` if it has no values.
+fn detail<S: AsRef<str>>(label: &str, values: &[S]) -> Option<HtmlElement> {
+    if values.is_empty() {
         return None;
     }
 
-    // Simple.css paints a term lighter, the label keeps the color of the other details
-    let label = HtmlElement::new(HtmlTag::DescriptionListTerm)
-        .with_attribute("style", "color: inherit")
-        .with_raw("Subjects:");
+    // every value comes from an EPUB file, it must not be able to inject markup
+    let descriptions = values.iter().map(|value| {
+        HtmlElement::new(HtmlTag::DescriptionListDescription)
+            .with_raw(build_html::escape_html(value.as_ref()))
+    });
 
-    // every subject comes from an EPUB file, it must not be able to inject markup
-    let list = book
-        .subjects()
-        .iter()
-        .map(|subject| {
-            HtmlElement::new(HtmlTag::DescriptionListDescription)
-                .with_raw(build_html::escape_html(subject))
-        })
-        .fold(
-            HtmlElement::new(HtmlTag::DescriptionList).with_html(label),
-            HtmlContainer::with_html,
-        );
+    let term = HtmlElement::new(HtmlTag::DescriptionListTerm).with_raw(label);
+    let group = HtmlElement::new(HtmlTag::Div)
+        .with_html(term)
+        .with_each(descriptions);
 
-    Some(list)
-}
-
-/// The `label: value` line of a detail of the book, `None` if the book does not have it.
-fn detail_line(label: &str, value: Option<&str>) -> Option<HtmlElement> {
-    Some(text_paragraph(&format!("{label}: {}", value?)))
+    Some(group)
 }
 
 /// A `<p>` of `text` with its markup escaped.
@@ -137,5 +128,19 @@ mod tests {
             paragraph.to_html_string(),
             "<p>&lt;script&gt;alert(1)&lt;/script&gt; &amp; co</p>"
         );
+    }
+
+    #[test]
+    fn a_detail_gets_a_description_for_each_value_and_none_without_values() {
+        let subjects = detail("Subjects", &["<b>Poetry</b>", "Novel"]);
+        let publisher = detail::<&str>("Publisher", &[]);
+
+        assert_eq!(
+            subjects
+                .map(|subjects| subjects.to_html_string())
+                .as_deref(),
+            Some("<div><dt>Subjects</dt><dd>&lt;b&gt;Poetry&lt;/b&gt;</dd><dd>Novel</dd></div>")
+        );
+        assert!(publisher.is_none());
     }
 }

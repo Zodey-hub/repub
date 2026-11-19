@@ -49,7 +49,7 @@ Every page answers in two forms on the same URL: a browser (its `Accept` lists `
 - Any other path or method: 404, `{"error":"not_found"}`
 - A database error: 500, `{"error":"internal_error"}`, the cause is in the log
 
-The HTML pages are styled with [Simple.css](https://simplecss.org) v2.3.7 (MIT), a classless stylesheet built into the binary from `assets/simple.min.css` and served at `GET /style.css`.
+The HTML pages are styled with a small stylesheet of their own (light and dark, following the system setting), built into the binary from `assets/style.css` and served at `GET /style.css`.
 
 ```sh
 curl http://127.0.0.1:8080/health                          # JSON

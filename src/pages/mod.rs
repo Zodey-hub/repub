@@ -173,6 +173,16 @@ trait WithOptional: HtmlContainer {
 
 impl<C: HtmlContainer> WithOptional for C {}
 
+/// An [`HtmlContainer`] that can take a list of children, so the parts built from a list keep the builder chain.
+trait WithEach: HtmlContainer {
+    /// Adds each of `htmls` in order; an empty list leaves the container as it is.
+    fn with_each<H: Html>(self, htmls: impl IntoIterator<Item = H>) -> Self {
+        htmls.into_iter().fold(self, Self::with_html)
+    }
+}
+
+impl<C: HtmlContainer> WithEach for C {}
+
 #[cfg(test)]
 mod tests {
     use http::HeaderValue;
