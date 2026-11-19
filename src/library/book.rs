@@ -1,10 +1,12 @@
 use std::path::Path;
+use std::slice;
 
 use epub::doc::{EpubDoc, MetadataItem};
 use serde::Serialize;
-use tiny_database::{NoIndex, Record, rkyv};
+use tiny_database::{Index, Record, key, rkyv};
 
 use super::Cover;
+use super::text;
 
 /// The MARC relator role of an author, also the role of a creator without one.
 const AUTHOR_ROLE: &str = "aut";
@@ -142,14 +144,61 @@ impl Book {
 
 impl Record for Book {
     const TABLE: &'static str = "books";
-    type Index = NoIndex;
+    type Index = BookIndex;
 
     fn id(&self) -> u64 {
         self.id
     }
 
-    fn index_keys(&self) -> Vec<(NoIndex, Vec<u8>)> {
-        Vec::new()
+    /// Each folded word of the text fields, the primary language and the year.
+    fn index_keys(&self) -> Vec<(BookIndex, Vec<u8>)> {
+        let text_fields = [
+            (BookIndex::Title, slice::from_ref(&self.title)),
+            (BookIndex::Author, self.authors.as_slice()),
+            (BookIndex::Translator, self.translators.as_slice()),
+            (BookIndex::Subject, self.subjects.as_slice()),
+            (BookIndex::Publisher, self.publisher.as_slice()),
+        ];
+
+        let mut keys = Vec::new();
+        for (index, values) in text_fields {
+            for value in values {
+                let value = text::folded(value);
+                keys.extend(text::words(&value).map(|word| (index, key::enc(word))));
+            }
+        }
+
+        let language = self.language.as_deref().map(text::primary_language);
+        keys.extend(language.map(|language| (BookIndex::Language, key::enc(language))));
+        keys.extend(self.year.map(|year| (BookIndex::Year, key::enc(year))));
+
+        keys
+    }
+}
+
+/// The indexes of the books: a text field has a key for each of its folded words, the language for its primary subtag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BookIndex {
+    Title,
+    Author,
+    Translator,
+    Subject,
+    Publisher,
+    Language,
+    Year,
+}
+
+impl Index for BookIndex {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Title => "title",
+            Self::Author => "author",
+            Self::Translator => "translator",
+            Self::Subject => "subject",
+            Self::Publisher => "publisher",
+            Self::Language => "language",
+            Self::Year => "year",
+        }
     }
 }
 

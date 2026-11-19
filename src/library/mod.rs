@@ -3,7 +3,8 @@
 mod book;
 mod cover;
 mod index;
+pub mod text;
 
-pub use book::Book;
+pub use book::{Book, BookIndex};
 pub use cover::Cover;
 pub use index::index;

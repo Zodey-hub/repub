@@ -1,47 +1,56 @@
 use anyhow::Context;
 use build_html::{Html, HtmlContainer, HtmlElement, HtmlTag, Table};
 use serde::Serialize;
-use tiny_database::Database;
-use unicode_normalization::UnicodeNormalization;
-use unicode_normalization::char::is_combining_mark;
+use tiny_database::{Database, key};
 
 use super::Page;
-use crate::library::Book;
-use crate::router::{BOOK_PATH, COVER_PATH};
+use crate::library::{Book, BookIndex, text};
+use crate::router::{self, BOOK_PATH, COVER_PATH, SEARCH_PATH};
 
 /// The width of a cover in the list of books, in pixels.
 const COVER_WIDTH: &str = "60";
 
-/// `GET /search?q=<query>`: the books whose title or authors contain every word of `query`, ignoring case and accents; no book for an empty `query`.
+/// The query parameters of the search, also the names of the fields of the search form.
+const TITLE_PARAMETER: &str = "title";
+const AUTHOR_PARAMETER: &str = "author";
+const TRANSLATOR_PARAMETER: &str = "translator";
+const SUBJECT_PARAMETER: &str = "subject";
+const PUBLISHER_PARAMETER: &str = "publisher";
+const LANGUAGE_PARAMETER: &str = "language";
+const YEAR_FROM_PARAMETER: &str = "year_from";
+const YEAR_TO_PARAMETER: &str = "year_to";
+
+/// `GET /search?title=&author=&translator=&subject=&publisher=&language=&year_from=&year_to=`: the books that match every given criterion; no book without a criterion.
+///
+/// The texts match ignoring case and accents, each word of a criterion has to start a word of that field (`jok` finds `Jókai`); the language matches its tag or primary subtag (`en` finds `en-US`); the years are inclusive.
 ///
 /// # Errors
 ///
 /// Returns an error if the books cannot be read from the database.
-pub fn search(database: &Database, query: &str) -> anyhow::Result<Search> {
-    let folded_query = folded(query);
-    let words: Vec<&str> = folded_query.split_whitespace().collect();
+pub fn search(database: &Database, query: Option<&str>) -> anyhow::Result<Search> {
+    let criteria = Criteria::from_query(query);
 
-    // an empty search lists nothing, a large library would be one huge page
-    let books = if words.is_empty() {
+    // a search without criteria lists nothing, a large library would be one huge page
+    let books = if criteria.is_empty() {
         Vec::new()
     } else {
-        let books = database.all::<Book>().context("cannot read the books")?;
+        let folded_criteria = criteria.folded();
+        let mut books = folded_criteria
+            .candidates(database)
+            .context("cannot search the books")?;
+
+        books.retain(|book| folded_criteria.matches(book));
+        books.sort_by_key(Book::id);
         books
-            .into_iter()
-            .filter(|book| matches(book, &words))
-            .collect()
     };
 
-    Ok(Search {
-        query: query.to_owned(),
-        books,
-    })
+    Ok(Search { criteria, books })
 }
 
-/// The search results, in JSON `{"query":"...","books":[...]}`.
+/// The search results, in JSON `{"criteria":{"title":"...","author":null,...},"books":[...]}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Search {
-    query: String,
+    criteria: Criteria,
     books: Vec<Book>,
 }
 
@@ -53,7 +62,7 @@ impl Page for Search {
     fn content(&self) -> HtmlElement {
         let main = HtmlElement::new(HtmlTag::Main);
 
-        if self.query.trim().is_empty() {
+        if self.criteria.is_empty() {
             return main;
         }
 
@@ -65,20 +74,180 @@ impl Page for Search {
     }
 }
 
-/// The `text` in the form it is searched in: lower case, without accents.
-fn folded(text: &str) -> String {
-    // lower case first, it can give a letter with an accent (`İ` -> `i̇`)
-    text.to_lowercase()
-        .nfd()
-        .filter(|character| !is_combining_mark(*character))
-        .collect()
+/// The search form, for the home page: every field is optional, a book has to match each filled one.
+pub fn search_form() -> HtmlElement {
+    let fields = [
+        ("Title", TITLE_PARAMETER, "search"),
+        ("Author", AUTHOR_PARAMETER, "search"),
+        ("Translator", TRANSLATOR_PARAMETER, "search"),
+        ("Subject", SUBJECT_PARAMETER, "search"),
+        ("Publisher", PUBLISHER_PARAMETER, "search"),
+        ("Language (hu, en, ...)", LANGUAGE_PARAMETER, "search"),
+        ("Year from", YEAR_FROM_PARAMETER, "number"),
+        ("Year to", YEAR_TO_PARAMETER, "number"),
+    ];
+
+    // a plain `GET` form, so the results have a URL like any other page
+    let form = HtmlElement::new(HtmlTag::Form).with_attribute("action", SEARCH_PATH);
+    let button = HtmlElement::new(HtmlTag::Button).with_raw("Search");
+
+    fields
+        .into_iter()
+        .map(|(label, name, input_type)| form_field(label, name, input_type))
+        .fold(form, HtmlContainer::with_html)
+        .with_html(button)
 }
 
-/// Whether the title or the authors of `book` contain each of the folded `words`.
-fn matches(book: &Book, words: &[&str]) -> bool {
-    // the fields are separated by a line break, which no word contains, so a word cannot match across two of them
-    let text = folded(&format!("{}\n{}", book.title(), book.authors().join("\n")));
-    words.iter().all(|word| text.contains(word))
+/// The criteria of a search, each `None` if it is not given.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+struct Criteria {
+    title: Option<String>,
+    author: Option<String>,
+    translator: Option<String>,
+    subject: Option<String>,
+    publisher: Option<String>,
+    language: Option<String>,
+    year_from: Option<u16>,
+    year_to: Option<u16>,
+}
+
+impl Criteria {
+    /// The criteria in the URL `query`; a field without a letter or digit, or a year that is not a number is no criterion.
+    fn from_query(query: Option<&str>) -> Self {
+        let text = |name| {
+            router::query_parameter(query, name)
+                .map(|value| value.trim().to_owned())
+                .filter(|value| text::words(value).next().is_some())
+        };
+        let year = |name| text(name)?.parse().ok();
+
+        Self {
+            title: text(TITLE_PARAMETER),
+            author: text(AUTHOR_PARAMETER),
+            translator: text(TRANSLATOR_PARAMETER),
+            subject: text(SUBJECT_PARAMETER),
+            publisher: text(PUBLISHER_PARAMETER),
+            language: text(LANGUAGE_PARAMETER),
+            year_from: year(YEAR_FROM_PARAMETER),
+            year_to: year(YEAR_TO_PARAMETER),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// The criteria with their texts folded, in the form the books are compared in.
+    fn folded(&self) -> Self {
+        let fold = |value: &Option<String>| value.as_deref().map(text::folded);
+
+        Self {
+            title: fold(&self.title),
+            author: fold(&self.author),
+            translator: fold(&self.translator),
+            subject: fold(&self.subject),
+            publisher: fold(&self.publisher),
+            language: fold(&self.language),
+            year_from: self.year_from,
+            year_to: self.year_to,
+        }
+    }
+
+    /// The books that one criterion selects through its index, a superset of the results; the criteria must be [`folded`](Self::folded) and not empty.
+    ///
+    /// The first word of a text field is the most selective, then comes the language, then the years.
+    fn candidates(&self, database: &Database) -> tiny_database::Result<Vec<Book>> {
+        let text_criteria = [
+            (BookIndex::Title, &self.title),
+            (BookIndex::Author, &self.author),
+            (BookIndex::Translator, &self.translator),
+            (BookIndex::Subject, &self.subject),
+            (BookIndex::Publisher, &self.publisher),
+        ];
+
+        let first_word = text_criteria
+            .into_iter()
+            .find_map(|(index, value)| Some((index, text::words(value.as_deref()?).next()?)));
+
+        if let Some((index, word)) = first_word {
+            return database.range(index, key::prefix_range(word));
+        }
+
+        if let Some(language) = &self.language {
+            let language_key = key::enc(text::primary_language(language));
+            return database.find(BookIndex::Language, &language_key);
+        }
+
+        let from = key::enc(self.year_from.unwrap_or(u16::MIN));
+        let to = key::enc(self.year_to.unwrap_or(u16::MAX));
+        database.range(BookIndex::Year, from..=to)
+    }
+
+    /// Whether `book` matches every criterion; the criteria must be [`folded`](Self::folded).
+    fn matches(&self, book: &Book) -> bool {
+        contains_words(&[book.title()], self.title.as_deref())
+            && contains_words(book.authors(), self.author.as_deref())
+            && contains_words(book.translators(), self.translator.as_deref())
+            && contains_words(book.subjects(), self.subject.as_deref())
+            && contains_words(book.publisher().as_slice(), self.publisher.as_deref())
+            && language_matches(book.language(), self.language.as_deref())
+            && year_matches(book.year(), self.year_from, self.year_to)
+    }
+}
+
+/// A `<label>` with its `<input>` of `input_type` named `name` below it.
+fn form_field(label: &str, name: &str, input_type: &str) -> HtmlElement {
+    let input = HtmlElement::new(HtmlTag::Input)
+        .with_attribute("type", input_type)
+        .with_attribute("name", name);
+
+    HtmlElement::new(HtmlTag::Label)
+        .with_raw(label)
+        .with_html(input)
+}
+
+/// Whether each word of the folded `query` starts a word of the `values` of a field; no `query` is no criterion.
+fn contains_words<S: AsRef<str>>(values: &[S], query: Option<&str>) -> bool {
+    let Some(query) = query else {
+        return true;
+    };
+
+    let values: Vec<String> = values
+        .iter()
+        .map(|value| text::folded(value.as_ref()))
+        .collect();
+
+    text::words(query).all(|query_word| {
+        values
+            .iter()
+            .flat_map(|value| text::words(value))
+            .any(|word| word.starts_with(query_word))
+    })
+}
+
+/// Whether the `language` tag of a book is the folded `query` tag or has it as its primary subtag; no `query` is no criterion.
+fn language_matches(language: Option<&str>, query: Option<&str>) -> bool {
+    let Some(query) = query else {
+        return true;
+    };
+
+    let Some(language) = language else {
+        return false;
+    };
+
+    let language = language.to_ascii_lowercase();
+    let subtags = language.strip_prefix(query);
+
+    subtags.is_some_and(|subtags| subtags.is_empty() || subtags.starts_with('-'))
+}
+
+/// Whether `year` is between `from` and `to`, both inclusive; a book without a year matches only when neither is given.
+fn year_matches(year: Option<u16>, from: Option<u16>, to: Option<u16>) -> bool {
+    if from.is_none() && to.is_none() {
+        return true;
+    }
+
+    year.is_some_and(|year| from.is_none_or(|from| year >= from) && to.is_none_or(|to| year <= to))
 }
 
 /// The table of `books`: the cover, the title, the authors and the language of each.
@@ -122,10 +291,60 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_search_ignores_case_and_accents() {
-        assert_eq!(
-            folded("Jókai MÓR: A KŐSZÍVŰ ember fiai, Çà"),
-            "jokai mor: a koszivu ember fiai, ca"
+    fn each_word_has_to_start_a_word_of_the_field() {
+        let authors = ["Jókai Mór", "Gárdonyi Géza"];
+
+        assert!(contains_words(&authors, Some("mor jok")));
+        assert!(
+            contains_words(&authors, Some("jokai geza")),
+            "the words can be in different authors"
         );
+        assert!(
+            !contains_words(&authors, Some("okai")),
+            "a word matches from its start"
+        );
+        assert!(!contains_words(&authors, Some("jokai mikszath")));
+        assert!(
+            !contains_words::<&str>(&[], Some("x")),
+            "a missing field matches no word"
+        );
+        assert!(
+            contains_words::<&str>(&[], None),
+            "no words is no criterion"
+        );
+    }
+
+    #[test]
+    fn a_language_matches_its_tag_or_primary_subtag() {
+        assert!(language_matches(Some("en-US"), Some("en")));
+        assert!(language_matches(Some("HU"), Some("hu")));
+        assert!(language_matches(Some("en-US"), Some("en-us")));
+        assert!(!language_matches(Some("eng"), Some("en")));
+        assert!(!language_matches(Some("en"), Some("en-us")));
+        assert!(!language_matches(None, Some("hu")));
+        assert!(language_matches(None, None));
+    }
+
+    #[test]
+    fn the_years_are_inclusive_and_a_book_without_a_year_matches_no_range() {
+        assert!(year_matches(Some(1900), Some(1900), Some(1900)));
+        assert!(year_matches(Some(1872), None, Some(1900)));
+        assert!(!year_matches(Some(1901), None, Some(1900)));
+        assert!(!year_matches(Some(1899), Some(1900), None));
+        assert!(!year_matches(None, Some(1900), None));
+        assert!(year_matches(None, None, None));
+    }
+
+    #[test]
+    fn a_blank_field_or_an_invalid_year_is_no_criterion() {
+        let criteria = Criteria::from_query(Some(
+            "title=+&author=J%C3%B3kai+&year_from=abc&year_to=1900",
+        ));
+
+        assert_eq!(criteria.title, None);
+        assert_eq!(criteria.author.as_deref(), Some("Jókai"));
+        assert_eq!(criteria.year_from, None);
+        assert_eq!(criteria.year_to, Some(1900));
+        assert!(Criteria::from_query(Some("title=&year_from=x")).is_empty());
     }
 }

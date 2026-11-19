@@ -14,10 +14,8 @@ use crate::reply::Reply;
 
 /// The path of the home page.
 pub const HOME_PATH: &str = "/";
-/// The path of the search results: `/search?q=<query>`.
+/// The path of the search results: `/search?title=<title>&author=<author>&...`.
 pub const SEARCH_PATH: &str = "/search";
-/// The name of the query parameter of the search.
-pub const SEARCH_PARAMETER: &str = "q";
 /// The path of the page of a book: `/book?id=<id>`.
 pub const BOOK_PATH: &str = "/book";
 /// The path of the EPUB file of a book: `/download?id=<id>`.
@@ -48,12 +46,12 @@ impl Router {
     fn respond(&self, method: &Method, uri: &Uri, format: Format) -> Response<Body> {
         let database = &self.database;
         let library = &self.library_dir;
-        let id = query_parameter(uri.query(), "id").and_then(|id| id.parse().ok());
-        let query = query_parameter(uri.query(), SEARCH_PARAMETER).unwrap_or_default();
+        let query = uri.query();
+        let id = query_parameter(query, "id").and_then(|id| id.parse().ok());
 
         match (method, uri.path(), id) {
             (&Method::GET, HOME_PATH, _) => pages::home().into_response(format),
-            (&Method::GET, SEARCH_PATH, _) => pages::search(database, &query).into_response(format),
+            (&Method::GET, SEARCH_PATH, _) => pages::search(database, query).into_response(format),
             (&Method::GET, BOOK_PATH, Some(id)) => pages::book(database, id).into_response(format),
             (&Method::GET, HEALTH_PATH, _) => pages::health(database).into_response(format),
             (&Method::GET, COVER_PATH, Some(id)) => {
@@ -76,7 +74,7 @@ impl Handler for Router {
 }
 
 /// The decoded value of the parameter `name` in `query`, or `None` if it is missing.
-fn query_parameter(query: Option<&str>, name: &str) -> Option<String> {
+pub fn query_parameter(query: Option<&str>, name: &str) -> Option<String> {
     let value = query?
         .split('&')
         .find_map(|parameter| parameter.strip_prefix(name)?.strip_prefix('='))?;
