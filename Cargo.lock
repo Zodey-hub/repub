@@ -596,9 +596,9 @@ dependencies = [
 
 [[package]]
 name = "redb"
-version = "4.6.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "096b1dd5ec053c9c2a5a26a93aafeadf73ebcb710ea54dc3151f17a8e20535ef"
+checksum = "11175cc688ba1b9d3cec4fe582fd82cb97e2a82e28ccc8101b7b8030a8003280"
 dependencies = [
  "libc",
 ]
@@ -814,9 +814,9 @@ dependencies = [
 
 [[package]]
 name = "tiny-database"
-version = "1.0.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3fafe9f672ecc4247864a8f81c77ac18e8778537dbc910654eb57a5953927d9"
+checksum = "9fde3c5a23af24ec2fcf2ae5d0f89c65dc781ca08e921fa3a3156a812637f42d"
 dependencies = [
  "redb",
  "rkyv",
@@ -826,7 +826,8 @@ dependencies = [
 [[package]]
 name = "tiny-http-server"
 version = "1.0.0"
-source = "git+https://github.com/Zodey-hub/tiny-http-server#0c424ac4e349b8b6a0b62cedc17d8b879299a928"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb37c58335c2e76dba110fff7c1494a34ed6b254edb85cc5114b19614c69f67f"
 dependencies = [
  "async-executor",
  "async-io",
