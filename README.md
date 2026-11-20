@@ -31,7 +31,7 @@ cargo run --release -- --help
 
 On every start the database is rebuilt from the EPUB files directly in the library directory (subdirectories are not read), before the server starts listening:
 
-- The books get the ids `1..` in the order of their file names, ignoring case; a new file can shift the ids of the books after it
+- The id of a book is the 64-bit FNV-1a hash of its file name cut to 53 bits (exact in JavaScript), so a link to a book stays valid across restarts and new files; renaming a file gives its book a new id, and a file whose id another file already has is skipped with a warning
 - Each book is indexed by the words of its title, authors, translators, subjects and publisher, its primary language and its year, so a search reads only the books of one index range instead of the whole library
 - Each book stores its title (the file name if it has none), authors, language, description (as plain text) and its cover image as it is in the EPUB
 - A file that is not a readable EPUB is skipped with a warning; a cover that is not a JPEG, PNG, GIF or WebP (an SVG could run a script) leaves the book without a cover
@@ -42,10 +42,10 @@ On every start the database is rebuilt from the EPUB files directly in the libra
 Every page answers in two forms on the same URL: a browser (its `Accept` lists `text/html`) gets an HTML page, anything else (curl, scripts, monitoring) gets JSON.
 
 - `GET /`: the home page with the search form (a field for each search parameter), `{"name":"repub","description":"..."}`
-- `GET /search?title=&author=&translator=&subject=&publisher=&language=&year_from=&year_to=`: the books that match every given field; no book without one. A text field matches ignoring case and accents when each of its words starts a word of that field in the book (any author, translator or subject; `jok` finds `Jókai`, `okai` does not), the language matches its tag or primary subtag (`en` finds `en-US`), the years are inclusive and a book without a year matches no year range; a blank field or a year that is not a number is ignored. `{"criteria":{"title":"...","author":null,...,"year_from":1900,"year_to":null},"books":[{"id":1,"file_name":"...","title":"...","authors":["..."],...}]}`
+- `GET /search?title=&author=&translator=&subject=&publisher=&language=&year_from=&year_to=`: the books that match every given field; no book without one. A text field matches ignoring case and accents when each of its words starts a word of that field in the book (any author, translator or subject; `jok` finds `Jókai`, `okai` does not), the language matches its tag or primary subtag (`en` finds `en-US`), the years are inclusive and a book without a year matches no year range; the books are listed by file name, ignoring case; a blank field or a year that is not a number is ignored. `{"criteria":{"title":"...","author":null,...,"year_from":1900,"year_to":null},"books":[{"id":1,"file_name":"...","title":"...","authors":["..."],...}]}`
 - `GET /book?id=<id>`: the page of a book with its cover, authors, language, description and a download button; in JSON the book itself; 404 if there is no such book
 - `GET /download?id=<id>`: the EPUB file of a book as an attachment under its own file name (`filename*` keeps the accents); 404 if there is no such book
-- `GET /cover?id=<id>`: the cover image of a book; 404 if the book has no cover
+- `GET /cover?id=<id>`: the cover image of a book, cached by the browser for a day; 404 if the book has no cover
 - `GET /health`: the state of the server, `{"status":"pass","version":"<version>","books":9}`; 503 with `{"status":"fail","version":"<version>","books":null}` if the database cannot be read, the cause is in the log
 - Any other path or method: 404, `{"error":"not_found"}`
 - A database error: 500, `{"error":"internal_error"}`, the cause is in the log

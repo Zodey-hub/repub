@@ -40,7 +40,7 @@ pub fn search(database: &Database, query: Option<&str>) -> anyhow::Result<Search
             .context("cannot search the books")?;
 
         books.retain(|book| folded_criteria.matches(book));
-        books.sort_by_key(Book::id);
+        books.sort_by_cached_key(|book| book.file_name().to_lowercase());
         books
     };
 

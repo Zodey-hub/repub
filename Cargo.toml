@@ -14,6 +14,7 @@ categories = ["web-programming"]
 anyhow = "1"
 build_html = { version = "2.8", git = "https://github.com/Zodey-hub/build_html" } # until the form tags are released upstream
 epub = "2"
+fnv = "1"
 http = "1"
 jiff = "1"
 log = { version = "0.4", features = ["std"] }
