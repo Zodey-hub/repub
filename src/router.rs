@@ -14,18 +14,18 @@ use crate::reply::Reply;
 
 /// The path of the home page.
 pub const HOME_PATH: &str = "/";
+/// The path of the stylesheet of every HTML page.
+pub const STYLE_PATH: &str = "/style.css";
 /// The path of the search results: `/search?title=<title>&author=<author>&...`.
 pub const SEARCH_PATH: &str = "/search";
 /// The path of the page of a book: `/book?id=<id>`.
 pub const BOOK_PATH: &str = "/book";
+/// The path of the cover of a book: `/cover?id=<id>`.
+pub const COVER_PATH: &str = "/cover";
 /// The path of the EPUB file of a book: `/download?id=<id>`.
 pub const DOWNLOAD_PATH: &str = "/download";
 /// The path of the health check.
 pub const HEALTH_PATH: &str = "/health";
-/// The path of the stylesheet of every HTML page.
-pub const STYLE_PATH: &str = "/style.css";
-/// The path of the cover of a book: `/cover?id=<id>`.
-pub const COVER_PATH: &str = "/cover";
 
 /// The handler of the server: answers every request with the page of its method and path.
 pub struct Router {
