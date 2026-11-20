@@ -20,11 +20,9 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    match app::run(&arguments) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            log::error!("{error:#}");
-            ExitCode::FAILURE
-        }
-    }
+    // the server never stops on its own, `run` returns only an error
+    let Err(error) = app::run(&arguments);
+
+    log::error!("{error:#}");
+    ExitCode::FAILURE
 }

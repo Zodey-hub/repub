@@ -832,10 +832,11 @@ dependencies = [
 
 [[package]]
 name = "tiny-http-server"
-version = "1.0.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb37c58335c2e76dba110fff7c1494a34ed6b254edb85cc5114b19614c69f67f"
+checksum = "7d4641ad77844ffc6d6fe05dcc71424055a6997ec4e701eb8f21ff9d287a9e4a"
 dependencies = [
+ "async-channel",
  "async-executor",
  "async-io",
  "async-net",
