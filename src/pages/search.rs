@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use anyhow::Context;
 use build_html::{Html, HtmlContainer, HtmlElement, HtmlTag, Table};
 use serde::Serialize;
@@ -30,28 +32,44 @@ const YEAR_TO_PARAMETER: &str = "year_to";
 pub fn search(database: &Database, query: Option<&str>) -> anyhow::Result<Search> {
     let criteria = Criteria::from_query(query);
 
-    // a search without criteria lists nothing, a large library would be one huge page
-    let books = if criteria.is_empty() {
-        Vec::new()
-    } else {
-        let folded_criteria = criteria.folded();
-        let mut books = folded_criteria
-            .candidates(database)
-            .context("cannot search the books")?;
+    if criteria.is_empty() {
+        return Ok(Search {
+            criteria,
+            books: Vec::new(),
+            stats: None,
+        });
+    }
 
-        books.retain(|book| folded_criteria.matches(book));
-        books.sort_by_cached_key(|book| book.file_name().to_lowercase());
-        books
+    let started = Instant::now();
+
+    let folded_criteria = criteria.folded();
+    let mut books = folded_criteria
+        .candidates(database)
+        .context("cannot search the books")?;
+
+    books.retain(|book| folded_criteria.matches(book));
+    books.sort_by_cached_key(|book| book.file_name().to_lowercase());
+
+    let candidates = books.len();
+    let elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap(); // cannot fail, a search does not take 584 000 years
+    let stats = SearchStats {
+        candidates,
+        elapsed_us,
     };
 
-    Ok(Search { criteria, books })
+    Ok(Search {
+        criteria,
+        books,
+        stats: Some(stats),
+    })
 }
 
-/// The search results, in JSON `{"criteria":{"title":"...","author":null,...},"books":[...]}`.
+/// The search results, in JSON `{"criteria":{"title":"...","author":null,...},"books":[...],"stats":{"candidates":37,"elapsed_us":412}}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Search {
     criteria: Criteria,
     books: Vec<Book>,
+    stats: Option<SearchStats>,
 }
 
 impl Page for Search {
@@ -62,9 +80,11 @@ impl Page for Search {
     fn content(&self) -> HtmlElement {
         let main = HtmlElement::new(HtmlTag::Main);
 
-        if self.criteria.is_empty() {
+        let Some(stats) = &self.stats else {
             return main;
-        }
+        };
+
+        let main = main.with_paragraph(stats.summary(self.books.len()));
 
         if self.books.is_empty() {
             return main.with_paragraph("No book matches the search.");
@@ -192,6 +212,24 @@ impl Criteria {
             && contains_words(book.publisher().as_slice(), self.publisher.as_deref())
             && language_matches(book.language(), self.language.as_deref())
             && year_matches(book.year(), self.year_from, self.year_to)
+    }
+}
+
+/// How the index served a search: how many books it read and how long the whole search took.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct SearchStats {
+    /// The books read from the index, before the other criteria filtered them.
+    candidates: usize,
+    /// The time of the index lookup, the filtering and the sorting, in microseconds.
+    elapsed_us: u64,
+}
+
+impl SearchStats {
+    /// The line of the results page: how many of the candidates matched and in how long.
+    fn summary(&self, found: usize) -> String {
+        let elapsed_ms = Duration::from_micros(self.elapsed_us).as_secs_f64() * 1000.0;
+        let candidates = self.candidates;
+        format!("{found} of {candidates} candidates from the index matched in {elapsed_ms:.2} ms.")
     }
 }
 
