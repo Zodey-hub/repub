@@ -48,7 +48,7 @@ pub fn search(database: &Database, query: Option<&str>) -> anyhow::Result<Search
         .context("cannot search the books")?;
 
     books.retain(|book| folded_criteria.matches(book));
-    books.sort_by_cached_key(|book| book.file_name().to_lowercase());
+    books.sort_by_cached_key(|book| text::folded(book.title()));
 
     let candidates = books.len();
     let elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap(); // cannot fail, a search does not take 584 000 years
